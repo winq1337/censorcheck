@@ -196,13 +196,15 @@ log_debug_line() {
 hex_to_text() {
   local hex="$1"
   local out=""
-  local i
+  local byte
 
-  for ((i = 0; i < ${#hex}; i += 2)); do
-    out+=$(printf "\\x%s" "${hex:i:2}")
+  while [[ -n "$hex" ]]; do
+    byte="${hex:0:2}"
+    hex="${hex:2}"
+    out+=$(printf '%b' "\\x${byte}")
   done
 
-  printf '%b' "$out"
+  printf '%s' "$out"
 }
 
 resolve_backend_url() {
