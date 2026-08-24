@@ -117,7 +117,7 @@ GREEN_ITALIC="\033[32;3m"
 YELLOW_ITALIC="\033[33;3m"
 BLUE_ITALIC="\033[34;3m"
 DIM="\033[2;90m"
-SPINNER_FRAMES=('-' '\\' '|' '/')
+SPINNER_FRAMES=('.  ' '.. ' '...' ' ..' '  .')
 REVEAL_DELAY=0.03
 
 DOMAIN_WIDTH=34
@@ -1041,11 +1041,11 @@ animate() {
     empty_str="${empty_str// /-}"
     local spinner="${SPINNER_FRAMES[$(( spin_index % ${#SPINNER_FRAMES[@]} ))]}"
 
-    printf "\r  ${CYAN}${BOLD}%s Scanning${RESET}  [${GREEN}%s${DIM}%s${RESET}]  ${YELLOW}${BOLD}%3d%%${RESET}  ${DIM}%d/%d${RESET}\e[K" \
+    printf "\r  ${CYAN}${BOLD}Scanning%s${RESET}  [${GREEN}%s${DIM}%s${RESET}]  ${YELLOW}${BOLD}%3d%%${RESET}  ${DIM}%d/%d${RESET}\e[K" \
       "$spinner" "$fill_str" "$empty_str" "$percent" "$done_count" "$total"
 
     spin_index=$(( spin_index + 1 ))
-    sleep 0.1
+    sleep 0.08
   done
 }
 
