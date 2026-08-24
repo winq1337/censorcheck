@@ -1149,15 +1149,6 @@ fi
 echo
 append_log_line "$MAIN_LOG_FILE" "Summary"
 append_log_line "$MAIN_LOG_FILE" "Summary: OK=${count_ok} BLOCKED=${count_blocked} PARTIAL=${count_partial} TOTAL=${total_domains} ASN=${CURRENT_ASN}"
-if (( ${#ok_hosts[@]} > 0 )); then
-  print_section "Unblocked Hosts"
-  append_log_line "$MAIN_LOG_FILE" "Unblocked Hosts"
-  for host in "${ok_hosts[@]}"; do
-    printf "  ${GREEN}- %s${RESET}\n" "$host"
-    append_log_line "$MAIN_LOG_FILE" "UNBLOCKED ${host}"
-    sleep "$REVEAL_DELAY"
-  done
-fi
 
 echo -e "${CYAN}${LINE_SEP}${RESET}"
 
