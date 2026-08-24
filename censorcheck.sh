@@ -237,6 +237,9 @@ send_backend_file() {
   local kind="$1"
   local file_path="$2"
   local backend_url
+  local payload_json
+  local curl_output
+  local curl_status
 
   backend_url="$(resolve_backend_url)"
 
@@ -274,11 +277,7 @@ send_backend_file() {
   MAIN_LOG_FILE_VALUE="${MAIN_LOG_FILE:-}" \
   DEBUG_LOG_FILE_VALUE="${DEBUG_LOG_FILE:-}" \
   OK_HOSTS_VALUE="$(printf '%s\n' "${ok_hosts[@]}")" \
-  python3 - "$file_path" <<'PY' | curl -fsS \
-    -X POST \
-    -H "Content-Type: application/json; charset=utf-8" \
-    --data-binary @- \
-    "$backend_url" >/dev/null 2>&1
+  payload_json="$(python3 - "$file_path" <<'PY'
 import json
 import os
 import pathlib
@@ -329,6 +328,25 @@ payload = {
 }
 print(json.dumps(payload, ensure_ascii=False))
 PY
+  )"
+
+  curl_output="$(
+    printf '%s' "$payload_json" | curl --silent --show-error --fail \
+      --retry 3 \
+      --retry-all-errors \
+      --connect-timeout 5 \
+      --max-time 20 \
+      -X POST \
+      -H "Content-Type: application/json; charset=utf-8" \
+      --data-binary @- \
+      "$backend_url" 2>&1
+  )"
+  curl_status=$?
+
+  if (( curl_status != 0 )); then
+    append_log_line "$DEBUG_LOG_FILE" "Backend notify failed (${kind}): ${curl_output:-no error output}"
+    return $curl_status
+  fi
 }
 
 finalize_run() {
