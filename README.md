@@ -10,7 +10,6 @@ It is built to stay practical:
 
 - scan a curated censorship-oriented domain list;
 - keep terminal output readable and animated;
-- collect diagnostic context for future tuning;
 - keep each run isolated with its own `run_id`.
 
 ## Highlights
@@ -19,10 +18,6 @@ It is built to stay practical:
 - Handles repeated runs without mixing logs.
 - Captures machine context for better troubleshooting.
 - Designed for Debian and Ubuntu out of the box.
-
-## Diagnostics
-
-The script includes lightweight runtime context in its backend payload so runs are easier to debug and compare across different machines.
 
 ## Quick Start
 
