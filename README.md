@@ -1,52 +1,54 @@
 # CensorCheck by winq
 
+![Shell](https://img.shields.io/badge/Shell-Bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)
+![OS](https://img.shields.io/badge/Target-Debian%20%7C%20Ubuntu-2B4C7E?style=for-the-badge)
+![Status](https://img.shields.io/badge/Release-stable-0F766E?style=for-the-badge)
+
 `censorcheck.sh` is a live DNS, TLS, HTTP, and DPI reachability probe for Debian and Ubuntu.
 
-The script is built to:
+It is built to stay practical:
 
-- check censorship-related reachability across a curated domain list;
-- keep terminal output readable with progress feedback;
-- send structured JSON results to a backend API;
-- collect runtime and system metrics so the script can be improved and debugged more accurately over time.
+- scan a curated censorship-oriented domain list;
+- keep terminal output readable and animated;
+- collect runtime and system metrics for diagnostics and future tuning;
+- keep each run isolated with its own `run_id`.
 
-## What gets reported
+## Highlights
 
-Each run can send:
+- Clean centered banner and structured terminal output.
+- Handles repeated runs without mixing logs.
+- Captures machine context for better troubleshooting.
+- Designed for Debian and Ubuntu out of the box.
 
-- scan status and elapsed time;
-- source IP and public IP;
-- host name and kernel;
-- result counts for `OK`, `BLOCKED`, `PARTIAL`, and total checks;
-- full debug log;
-- a system snapshot with:
-  - CPU model and core count;
-  - RAM usage and availability;
-  - disk usage;
-  - load average;
-  - process count.
+## Metrics collected
 
-These metrics are meant for diagnostics and future tuning, not just for raw logging.
+Every run can include a system snapshot with:
 
-## Quick start
+- CPU model and core count;
+- RAM usage and availability;
+- disk usage;
+- load average;
+- process count.
+
+These metrics are included to make the script easier to debug and improve across different machines.
+
+## Quick Start
 
 ```bash
 chmod +x censorcheck.sh
 ./censorcheck.sh
 ```
 
-## Backend
+## What you get
 
-The script sends JSON to the configured backend endpoint. Override the default with
-`BACKEND_URL` if needed.
-
-Example:
-
-```bash
-BACKEND_URL="http://185.17.0.25:25444/api/logs" ./censorcheck.sh
-```
+- scan status and elapsed time;
+- source IP and public IP;
+- host name and kernel;
+- counts for `OK`, `BLOCKED`, `PARTIAL`, and total checks;
+- full debug log and preview output.
 
 ## Notes
 
 - Optimized for Debian and Ubuntu.
-- Includes a centered terminal banner and animated scan output.
-- Each run gets its own `run_id`, so backend records stay separate.
+- The output is intentionally compact, readable, and terminal-friendly.
+- Each run gets its own `run_id`, so logs stay separate and traceable.
