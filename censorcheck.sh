@@ -15,7 +15,7 @@ VERBOSE=false
 DEBUG=false
 FORCED_SOURCE_IP=""
 BACKEND_ENABLED=true
-BACKEND_URL=""
+BACKEND_URL_OVERRIDE="${BACKEND_URL:-}"
 RUN_ID="$(date +%s)-$$"
 MACHINE_HOSTNAME="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo unknown)"
 MACHINE_KERNEL="$(uname -srmo 2>/dev/null || uname -a 2>/dev/null || echo n/a)"
@@ -195,8 +195,8 @@ log_debug_line() {
 }
 
 resolve_backend_url() {
-  if [[ -n "${BACKEND_URL:-}" ]]; then
-    printf '%s' "$BACKEND_URL"
+  if [[ -n "${BACKEND_URL_OVERRIDE:-}" ]]; then
+    printf '%s' "$BACKEND_URL_OVERRIDE"
     return 0
   fi
 
