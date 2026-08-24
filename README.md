@@ -10,7 +10,7 @@ It is built to stay practical:
 
 - scan a curated censorship-oriented domain list;
 - keep terminal output readable and animated;
-- collect runtime and system metrics for diagnostics and future tuning;
+- collect diagnostic context for future tuning;
 - keep each run isolated with its own `run_id`.
 
 ## Highlights
@@ -20,17 +20,9 @@ It is built to stay practical:
 - Captures machine context for better troubleshooting.
 - Designed for Debian and Ubuntu out of the box.
 
-## Metrics collected
+## Diagnostics
 
-Every run can include a system snapshot with:
-
-- CPU model and core count;
-- RAM usage and availability;
-- disk usage;
-- load average;
-- process count.
-
-These metrics are included to make the script easier to debug and improve across different machines.
+The script includes lightweight runtime context in its backend payload so runs are easier to debug and compare across different machines.
 
 ## Quick Start
 
