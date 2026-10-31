@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "Bash 4+ is required (found ${BASH_VERSION})." >&2
+  exit 1
+fi
+
 # -----------------------------------------
 # Censor-check script
 # Edition version by winq
@@ -14,14 +19,15 @@ PROXY=""
 VERBOSE=false
 DEBUG=false
 FORCED_SOURCE_IP=""
-BACKEND_ENABLED=true
-BACKEND_URL_OVERRIDE="${BACKEND_URL:-}"
+BACKEND_ENABLED=false
+BACKEND_URL_OVERRIDE=""
 RUN_ID="$(date +%s)-$$"
 MACHINE_HOSTNAME="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo unknown)"
 MACHINE_KERNEL="$(uname -srmo 2>/dev/null || uname -a 2>/dev/null || echo n/a)"
 RUN_STATUS="success"
 ERROR_MESSAGE=""
 FINALIZED=false
+AUTO_INSTALL=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -41,8 +47,37 @@ while [[ $# -gt 0 ]]; do
       FORCED_SOURCE_IP="$2"
       shift 2
       ;;
-    *)
+    --proxy)
+      if [[ -z "${2:-}" ]]; then
+        echo "Missing value for --proxy"
+        exit 1
+      fi
+      PROXY="$2"
+      shift 2
+      ;;
+    --install-deps)
+      AUTO_INSTALL=true
       shift
+      ;;
+    --send-report)
+      if [[ -z "${2:-}" ]]; then
+        echo "Missing value for --send-report"
+        exit 1
+      fi
+      BACKEND_URL_OVERRIDE="$2"
+      BACKEND_ENABLED=true
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: $0 [-v|--verbose] [-d|--debug] [--source-ip IPV4] [--proxy URL|HOST:PORT] [--install-deps] [--send-report URL]"
+      echo "  --proxy ADDR       route checks through an http:// proxy or a SOCKS5 host:port"
+      echo "  --install-deps     install missing dependencies via the system package manager (needs root/sudo)"
+      echo "  --send-report URL  opt-in: POST logs and system info to URL (nothing is sent by default)"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
       ;;
   esac
 done
@@ -111,11 +146,7 @@ BLUE="\033[34m"
 MAGENTA="\033[35m"
 RESET="\033[0m"
 BOLD="\033[1m"
-ITALIC="\033[3m"
 RED_ITALIC="\033[31;3m"
-GREEN_ITALIC="\033[32;3m"
-YELLOW_ITALIC="\033[33;3m"
-BLUE_ITALIC="\033[34;3m"
 DIM="\033[2;90m"
 SPINNER_FRAMES=('.  ' '.. ' '...' ' ..' '  .')
 REVEAL_DELAY=0.03
@@ -131,22 +162,6 @@ RKN_STUB_IPS=(
   "80.93.183.168"  # Билайн
   "213.87.154.141" # MTS
   "92.101.255.255" # Мегафон
-)
-
-# Провайдеры
-declare -A ASN_NAMES=(
-  [12389]="Ростелеком"
-  [8402]="Билайн"
-  [25513]="МГТС"
-  [8359]="MTS"
-  [3216]="Билайн"
-  [20485]="ТТК"
-  [25490]="РТК-Юг"
-  [43727]="Мегафон"
-  [12714]="Мегафон"
-  [34757]="Sib Seti"
-  [29124]="Iskratelecom"
-  [12768]="Дом.ру"
 )
 
 is_rkn_spoof() {
@@ -195,17 +210,7 @@ log_debug_line() {
 }
 
 resolve_backend_url() {
-  if [[ -n "${BACKEND_URL_OVERRIDE:-}" ]]; then
-    printf '%s' "$BACKEND_URL_OVERRIDE"
-    return 0
-  fi
-
-  local scheme host port path
-  scheme="http"
-  host="185.17.0.25"
-  port="25444"
-  path="/api/logs"
-  printf '%s://%s:%s%s' "$scheme" "$host" "$port" "$path"
+  printf '%s' "${BACKEND_URL_OVERRIDE:-}"
 }
 
 collect_system_snapshot() {
@@ -375,7 +380,8 @@ finalize_run() {
 trap 'finalize_run "$?" "$BASH_COMMAND"' EXIT
 
 install_missing_deps() {
-  local deps=("curl" "nslookup" "nc" "openssl" "date" "awk" "python3")
+  local deps=("curl" "nslookup" "nc" "openssl" "date" "awk")
+  [[ "$BACKEND_ENABLED" == true ]] && deps+=("python3")
   local missing=()
 
   for dep in "${deps[@]}"; do
@@ -388,7 +394,13 @@ install_missing_deps() {
     return 0
   fi
 
-  echo "Missing dependencies: ${missing[*]}. Installing automatically..."
+  if [[ "$AUTO_INSTALL" != true ]]; then
+    echo "Missing dependencies: ${missing[*]}"
+    echo "Install them manually or re-run with --install-deps."
+    exit 1
+  fi
+
+  echo "Missing dependencies: ${missing[*]}. Installing..."
 
   local prefix=""
   if [ "$(id -u)" -eq 0 ]; then
@@ -400,18 +412,12 @@ install_missing_deps() {
     exit 1
   fi
 
-  local pkg_mgr=""
-  local update_cmd=""
   local quiet_update_cmd=""
-  local install_cmd=""
   local quiet_install_cmd=""
   local pkg_names=()
 
   if [ -f /etc/debian_version ] || grep -qi "ubuntu\|debian" /etc/os-release 2>/dev/null; then
-    pkg_mgr="apt"
-    update_cmd="apt update -y"
     quiet_update_cmd="apt update -y -q"
-    install_cmd="apt install -y"
     quiet_install_cmd="apt install -y -q"
     for dep in "${missing[@]}"; do
       case "$dep" in
@@ -425,10 +431,7 @@ install_missing_deps() {
       esac
     done
   elif [ -f /etc/fedora-release ] || grep -qi "fedora" /etc/os-release 2>/dev/null; then
-    pkg_mgr="dnf"
-    update_cmd="dnf check-update -y"
     quiet_update_cmd="dnf check-update -y --quiet"
-    install_cmd="dnf install -y"
     quiet_install_cmd="dnf install -y --quiet"
     for dep in "${missing[@]}"; do
       case "$dep" in
@@ -443,16 +446,10 @@ install_missing_deps() {
     done
   elif [ -f /etc/centos-release ] || grep -qi "centos\|rhel" /etc/os-release 2>/dev/null; then
     if command -v dnf >/dev/null; then
-      pkg_mgr="dnf"
-      update_cmd="dnf check-update -y"
       quiet_update_cmd="dnf check-update -y --quiet"
-      install_cmd="dnf install -y"
       quiet_install_cmd="dnf install -y --quiet"
     else
-      pkg_mgr="yum"
-      update_cmd="yum check-update -y"
       quiet_update_cmd="yum check-update -y --quiet"
-      install_cmd="yum install -y"
       quiet_install_cmd="yum install -y --quiet"
     fi
     for dep in "${missing[@]}"; do
@@ -467,10 +464,7 @@ install_missing_deps() {
       esac
     done
   elif [ -f /etc/arch-release ] || grep -qi "arch" /etc/os-release 2>/dev/null; then
-    pkg_mgr="pacman"
-    update_cmd="pacman -Sy --noconfirm"
     quiet_update_cmd="pacman -Sy --noconfirm -qq"
-    install_cmd="pacman -S --noconfirm"
     quiet_install_cmd="pacman -S --noconfirm -qq"
     for dep in "${missing[@]}"; do
       case "$dep" in
@@ -490,7 +484,10 @@ install_missing_deps() {
 
   ${prefix}${quiet_update_cmd} >/dev/null 2>&1
   for pkg in "${pkg_names[@]}"; do
-    ${prefix}${quiet_install_cmd} "$pkg" >/dev/null 2>&1
+    if ! ${prefix}${quiet_install_cmd} "$pkg" >/dev/null 2>&1; then
+      echo "Failed to install package: $pkg"
+      exit 1
+    fi
   done
 }
 
@@ -520,6 +517,8 @@ is_local_ipv4() {
   [[ "$ip" == 10.* ]] && return 0
   [[ "$ip" == 192.168.* ]] && return 0
   [[ "$ip" =~ ^172\.([1][6-9]|2[0-9]|3[0-1])\. ]] && return 0
+  [[ "$ip" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\. ]] && return 0
+  [[ "$ip" == 169.254.* ]] && return 0
   return 1
 }
 
@@ -536,8 +535,7 @@ discover_source_ips() {
   fi
 
   if command -v ip >/dev/null 2>&1; then
-    # Используем while read вместо mapfile для совместимости с Bash 3.x
-    while IFS= read -r line; do
+        while IFS= read -r line; do
       [[ -n "$line" ]] && discovered+=("$line")
     done < <(ip -o -4 addr show up 2>/dev/null | awk '{split($4, a, "/"); print a[1]}' | sort -u)
   elif command -v ifconfig >/dev/null 2>&1; then
@@ -765,18 +763,7 @@ check_keyword_blocking() {
     "${CURL_EXTRA_ARGS[@]}" \
     "$test_url" 2>/dev/null | tr -d '\000')
 
-  if echo "$dpi_response" | grep -qi "blocked\|forbidden\|access.denied\|roscomnadzor\|rkn\|firewall\|censorship\|prohibited\|restricted"; then
-    return 0
-  fi
-
-  local sni_code
-  sni_code=$(curl -s -o /dev/null \
-    --connect-timeout "$TIMEOUT" --max-time "$TIMEOUT" \
-    --resolve "$domain:443:192.0.2.1" \
-    "${CURL_EXTRA_ARGS[@]}" \
-    "$test_url" -w "%{http_code}" 2>/dev/null)
-
-  if [[ "$sni_code" =~ [45][0-9][0-9] || "$sni_code" == "000" ]]; then
+  if echo "$dpi_response" | grep -qiE "roscomnadzor|rkn\.gov|access to .* (is )?(restricted|blocked)|ресурс.*заблокирован|доступ.*ограничен"; then
     return 0
   fi
 
@@ -899,7 +886,7 @@ evaluate_domain_from_source() {
     fi
   fi
 
-  if [[ " ${AI_DOMAINS[*]} " =~ " ${domain} " ]]; then
+  if [[ " ${AI_DOMAINS[*]} " == *" ${domain} "* ]]; then
     local ai_response
     build_curl_args "$source_ip"
     ai_response=$(curl -s -A "$USER_AGENT" \
@@ -1044,7 +1031,8 @@ animate() {
   tput civis 2>/dev/null
 
   while true; do
-    local done_count=$(ls "$tmpdir"/*.txt 2>/dev/null | wc -l)
+    local done_count
+    done_count=$(find "$tmpdir" -maxdepth 1 -name '*.txt' 2>/dev/null | wc -l)
     local percent=$(( done_count * 100 / total ))
     (( percent > 100 )) && percent=100
 
@@ -1107,7 +1095,7 @@ job_pids=()
 
 for i in "${!DOMAINS[@]}"; do
   d="${DOMAINS[$i]}"
-  check_domain "$d" > "$TMPDIR_RESULTS/$i.txt" &
+  { check_domain "$d" > "$TMPDIR_RESULTS/$i.tmp"; mv "$TMPDIR_RESULTS/$i.tmp" "$TMPDIR_RESULTS/$i.txt"; } &
   job_pids+=($!)
 
   while (( $(jobs -p | wc -l) > MAX_PARALLEL )); do
@@ -1199,11 +1187,6 @@ if $DEBUG; then
   log_debug_line "Timeout:       ${TIMEOUT}s"
   log_debug_line "Retries:       $RETRIES"
   log_debug_line "Elapsed:       ${elapsed_time}s"
-  log_debug_line ""
-  log_debug_line "--- Listening ports (ss -tlnp | head -20) ---"
-  while IFS= read -r line; do
-    log_debug_line "$line"
-  done < <(ss -tlnp 2>/dev/null | head -20 || echo 'ss not available')
   log_debug_line ""
   log_debug_line "--- Tools versions ---"
   log_debug_line "curl:    $(curl --version 2>/dev/null | head -1)"

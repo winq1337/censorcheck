@@ -34,6 +34,30 @@ chmod +x censorcheck.sh
 - counts for `OK`, `BLOCKED`, `PARTIAL`, and total checks;
 - full debug log and preview output.
 
+## Options
+
+| Flag | Description |
+| --- | --- |
+| `-v`, `--verbose` | extra diagnostics |
+| `-d`, `--debug` | print and log debug info |
+| `--source-ip IPV4` | scan from a specific local IPv4 |
+| `--proxy ADDR` | `http://host:port` or SOCKS5 `host:port` |
+| `--install-deps` | install missing dependencies (root/sudo, apt/dnf/yum/pacman) |
+| `--send-report URL` | opt-in: POST the run report to URL |
+| `-h`, `--help` | usage |
+
+Requires Bash 4+ and GNU `date`. Missing tools are no longer installed automatically.
+
+## Privacy
+
+Nothing leaves your machine by default. Reporting is opt-in:
+
+```
+./censorcheck.sh --send-report https://your-server/api/logs
+```
+
+With `--send-report`, the script POSTs the run logs, public/source IP, ASN, hostname, kernel and basic system stats (CPU, memory, disk, load) to the URL you give. Use HTTPS.
+
 ## Notes
 
 - Optimized for Debian and Ubuntu.
